@@ -28,7 +28,7 @@ namespace CorticonRulesheetBuilder
 
         static string rulesheetOutputPath = @"C:\Corticon\ExampleOne.ers";
 
-        // we're only generating the rules here. (Gotta create the vocabulary seperately and link it up.)
+        // we're only generating the rules here. (Gotta create the vocabulary separately and link it up.)
         static string vocabularyFilePath = @"C:\Corticon\Generated.ecore";
 
         static void Main(string[] args)
