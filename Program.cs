@@ -18,6 +18,9 @@ using org.eclipse.emf.common.util;
 using com.corticon.eclipse.studio.rule.rulesheet.table.core;
 using System.Data.Entity.Design.PluralizationServices;
 using System.Globalization;
+using OfficeOpenXml;
+using System.IO;
+using System.Reflection;
 
 namespace CorticonRulesheetBuilder
 {
@@ -26,42 +29,38 @@ namespace CorticonRulesheetBuilder
         static IRulesheetTableModelAPI rulesheetTableModelAPI;
         static IRulesheetDialogAPI rulesheetDialogAPI;
 
-        static string rulesheetOutputPath = @"C:\Corticon\ExampleOne.ers";
+        static string basePath = @"C:\Corticon\Generated\";
+
+        static string rulesheetOutputPath = Path.Combine(basePath, @"ExampleOne.ers");
 
         // we're only generating the rules here. (Gotta create the vocabulary separately and link it up.)
-        static string vocabularyFilePath = @"C:\Corticon\Generated.ecore";
+        static string vocabularyFilePath = Path.Combine(basePath, @"Generated.ecore");
+
+        static string dataFilePath = Path.Combine(basePath, @"Skydiver.xlsx");
 
         static void Main(string[] args)
         {
             #region Data
+            FileInfo fileInfo = new FileInfo(dataFilePath);
+            ExcelPackage pck = new ExcelPackage(fileInfo);
 
-            // create the data we're going to use to generate the rules
-            DataTable table = new DataTable("Applicants");
+            var worksheet = pck.Workbook.Worksheets[1];
+            var start = worksheet.Dimension.Start;
+            var end = worksheet.Dimension.End;
 
-            table.Columns.Add("Age", "Skydiver", "Weight", "Gender", "Risk");
-
-            table.Rows.Add("young", "yes", "heavy", "male", "high");
-            table.Rows.Add("young", "yes", "light", "female", "high");
-            table.Rows.Add("old", "yes", "heavy", "male", "high");
-            table.Rows.Add("old", "yes", "light", "female", "high");
-            table.Rows.Add("young", "no", "light", "female", "low");
-            table.Rows.Add("young", "no", "heavy", "female", "medium");
-            table.Rows.Add("young", "no", "heavy", "male", "medium");
-            table.Rows.Add("old", "no", "light", "male", "medium");
-            table.Rows.Add("old", "no", "heavy", "female", "medium");
+            // create the table we're going to use to generate the rules
+            var table = worksheet.ToDataTable("Applicants");
 
             // list the input columns
-            List<string> inputColumns = new List<string>()
-            {
-                "Age",
-                "Skydiver",
-                "Weight",
-                "Gender"
-            };
+            List<string> inputColumns = new List<string>();
 
+            for (int col = start.Column; col <= end.Column - 1; col++)
+            {
+                inputColumns.Add(worksheet.Cells[1, col].Text);
+            }
 
             // list the output column
-            string outputColumn = "Risk";
+            string outputColumn = worksheet.Cells[1, end.Column].Text;
             
             var codeColumns = new List<string>();
 
@@ -74,9 +73,9 @@ namespace CorticonRulesheetBuilder
 
             // convert strings to int symbols
             Codification codebook = new Codification(table, codeColumns.ToArray());
-            
+
             // translate the training data into int symbols (using the codebook)
-            DataTable symbols = codebook.Apply(table);
+            var symbols = codebook.Apply(table);
             int[][] inputs = symbols.ToArray<int>(inputColumns.ToArray());
             int[] outputs = symbols.ToArray<int>(outputColumn);
             
