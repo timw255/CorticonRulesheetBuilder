@@ -29,30 +29,28 @@ namespace CorticonRulesheetBuilder
         static IRulesheetTableModelAPI rulesheetTableModelAPI;
         static IRulesheetDialogAPI rulesheetDialogAPI;
 
+        // base path to the assets folder
         static string basePath = @"C:\Corticon\Generated\";
-
         static string rulesheetOutputPath = Path.Combine(basePath, @"ExampleOne.ers");
-
         // we're only generating the rules here. (Gotta create the vocabulary separately and link it up.)
         static string vocabularyFilePath = Path.Combine(basePath, @"Generated.ecore");
-
-        static string dataFilePath = Path.Combine(basePath, @"Skydiver.xlsx");
+        static string dataFilePath = Path.Combine(basePath, @"Applicants.xlsx");
 
         static void Main(string[] args)
         {
             #region Data
-            FileInfo fileInfo = new FileInfo(dataFilePath);
-            ExcelPackage pck = new ExcelPackage(fileInfo);
+            var fileInfo = new FileInfo(dataFilePath);
+            var pck = new ExcelPackage(fileInfo);
 
             var worksheet = pck.Workbook.Worksheets[1];
             var start = worksheet.Dimension.Start;
             var end = worksheet.Dimension.End;
 
             // create the table we're going to use to generate the rules
-            var table = worksheet.ToDataTable("Applicants");
+            var table = worksheet.ToDataTable(Path.GetFileNameWithoutExtension(dataFilePath));
 
             // list the input columns
-            List<string> inputColumns = new List<string>();
+            var inputColumns = new List<string>();
 
             for (int col = start.Column; col <= end.Column - 1; col++)
             {
@@ -60,7 +58,7 @@ namespace CorticonRulesheetBuilder
             }
 
             // list the output column
-            string outputColumn = worksheet.Cells[1, end.Column].Text;
+            var outputColumn = worksheet.Cells[1, end.Column].Text;
             
             var codeColumns = new List<string>();
 
@@ -72,31 +70,35 @@ namespace CorticonRulesheetBuilder
             #region Decision Tree
 
             // convert strings to int symbols
-            Codification codebook = new Codification(table, codeColumns.ToArray());
+            var codebook = new Codification(table, codeColumns.ToArray());
 
             // translate the training data into int symbols (using the codebook)
             var symbols = codebook.Apply(table);
-            int[][] inputs = symbols.ToArray<int>(inputColumns.ToArray());
-            int[] outputs = symbols.ToArray<int>(outputColumn);
-            
+            var inputs = symbols.ToArray<double>(inputColumns.ToArray());
+            var outputs = symbols.ToArray<int>(outputColumn);
+
             // decision variables
-            List<DecisionVariable> attributes = new List<DecisionVariable>();
+            var attributes = new List<DecisionVariable>();
             for (var i = 0; i < inputColumns.Count(); i++)
             {
                 attributes.Add(new DecisionVariable(inputColumns[i], codebook.Columns.First(c => c.ColumnName == inputColumns[i]).Values.Count()));
             }
 
-            int classCount = codebook.Columns.First(c => c.ColumnName == outputColumn).Values.Count();
-            
+            var classCount = codebook.Columns.First(c => c.ColumnName == outputColumn).Values.Count();
+
             // create decision tree
-            DecisionTree tree = new DecisionTree(attributes, classCount);
+            var tree = new DecisionTree(attributes, classCount);
 
             #endregion
 
             #region Machine Learning
+            
+            // ID3 can be used here to increase accuracy against training data.
+            // I'm using C4.5 to avoid overfitting the training data and to improve accuracy against unseen data.
 
-            ID3Learning id3learning = new ID3Learning(tree);
-            id3learning.Run(inputs, outputs);
+            // create the C4.5 algorithm
+            var c45 = new C45Learning(tree);
+            c45.Run(inputs, outputs);
 
             #endregion
 
